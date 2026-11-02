@@ -1,0 +1,10 @@
+# Render Blueprint: GitHub에 push하면 자동으로 빌드·배포됩니다.
+services:
+  - type: web
+    name: jarvis-assistant
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
