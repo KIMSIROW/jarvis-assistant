@@ -1,0 +1,45 @@
+name: Deploy
+
+# CI(테스트 + 이미지 빌드/푸시)가 성공하면, 내 PC에 등록한 self-hosted runner가
+# Docker Hub에서 새 이미지를 받아 기존 컨테이너를 교체한다.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: self-hosted
+    env:
+      IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/jarvis-assistant:latest
+    steps:
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull latest image
+        run: docker pull $env:IMAGE
+
+      - name: Replace running container
+        run: |
+          $old = docker ps -aq --filter "name=^/jarvis$"
+          if ($old) { docker rm -f jarvis }
+          docker run -d --name jarvis --restart unless-stopped -p 8000:8000 -v jarvis-data:/data $env:IMAGE
+
+      - name: Verify service is up
+        run: |
+          $ok = $false
+          for ($i = 0; $i -lt 20; $i++) {
+            try {
+              $r = Invoke-RestMethod -Uri "http://localhost:8000/api/health" -TimeoutSec 3
+              Write-Host "health: $($r | ConvertTo-Json -Compress)"
+              $ok = $true
+              break
+            } catch { Start-Sleep -Seconds 2 }
+          }
+          if (-not $ok) { docker logs jarvis; exit 1 }
