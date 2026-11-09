@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).parent
 DB_PATH = os.environ.get("DB_PATH", str(BASE_DIR / "jarvis.db"))
+APP_VERSION = os.environ.get("APP_VERSION", "dev")  # Docker 빌드 시 커밋 SHA가 들어감
 
 try:
     from zoneinfo import ZoneInfo
@@ -292,7 +293,7 @@ def chat(body: ChatIn):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "time": datetime.now(KST).isoformat()}
+    return {"status": "ok", "version": APP_VERSION, "time": datetime.now(KST).isoformat()}
 
 
 @app.get("/")
